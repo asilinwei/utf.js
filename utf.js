@@ -9,13 +9,18 @@
 
   var at;
 
-  var BASE64_SET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+  var BASE64_SET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/',
+      BASE32_SET = '0123456789abcdefghjkmnpqrtuvwxyz';
+
+  var BASE64_FLAG = 'BASE_64',
+      BASE32_FLAG = 'BASE_32';    
 
   var UTF = function() {
     if (!(this instanceof UTF)) {
       return new UTF();
     }
     this.VERSION = '0.0.1';
+    this.base32 = { 'encode': base32Encode, 'decode': base32Decode };
     this.base64 = { 'encode': base64Encode, 'decode': base64Decode };
   };
 
@@ -34,15 +39,23 @@
     throw new Error('Invalid UTF-8 sequence');
   };
 
-  var base64Encode = function(string) {
-    if (typeof string !== 'string') {
-      return '';
-    }
-    if (/[^\u0000-\u00FF]+/.test(string)) {
-      throw new Error('Non-ASCII character');
-    }
-    return baseBase64Encode(string);
+  var baseNEncode = function(flag) {
+    return function(string) {
+      if (typeof string !== 'string') {
+        return '';
+      }
+      if (/[^\u0000-\u00FF]+/.test(string)) {
+        throw new Error('Non-ASCII character');
+      }
+      switch (flag) {
+        case 'BASE_32': return baseBase32Encode(string);
+        case 'BASE_64': return baseBase64Encode(string);
+      }
+    };
   };
+
+  var base64Encode = baseNEncode(BASE64_FLAG),
+      base32Encode = baseNEncode(BASE32_FLAG);
 
   var base64Decode = function(string) {
     if (typeof string !== 'string') {
@@ -53,6 +66,8 @@
     }
     throw new Error('Invalid base64 sequence');
   }; 
+
+  var base32Decode = function(string) {};
 
   var utf8Encode = function(string) {
     if (typeof string !== 'string') {
@@ -258,8 +273,54 @@
     return result.join('');   
   };
 
+  var baseBase32Encode = function(string) {
+    var result = [],
+        prev, cur, byteNum,
+        length = string.length;
+    for (var index = 0; index < length; index += 1) {
+      cur = codePointAt.call(string[index], 0);
+      byteNum = index % 5;
+      switch (byteNum) {
+        case 0:
+          result.push(BASE32_SET.charAt(cur >> 3));
+          break;
+        case 1:
+          result.push(BASE32_SET.charAt(((prev & 0x7) << 2) | (cur >> 6)));
+          break;
+        case 2:
+          result.push(BASE32_SET.charAt((prev & 0x3F) >> 1), BASE32_SET.charAt(((prev & 0x1) << 4) | (cur >> 4)));
+          break;
+        case 3:
+          result.push(BASE32_SET.charAt(((prev & 0xF) << 1) | (cur >> 7)));
+          break;
+        case 4:
+          result.push(
+            BASE32_SET.charAt((prev & 0x7F) >> 2),
+            BASE32_SET.charAt(((prev & 0x3) << 3) | (cur >> 5)),
+            BASE32_SET.charAt(cur & 0x1F)
+          );
+      }
+      prev = cur;
+    } 
+    switch (byteNum) {
+      case 0:
+        result.push(BASE32_SET.charAt((prev & 0x7) << 2));
+        break;
+      case 1:
+        result.push(BASE32_SET.charAt((prev & 0x3F) >> 1), BASE32_SET.charAt((prev & 0x1) << 4));
+        break;
+      case 2:
+        result.push(BASE32_SET.charAt((prev & 0xF) << 1));
+        break;
+      case 3:
+        result.push(BASE32_SET.charAt((prev & 0x7F) >> 2), BASE32_SET.charAt((prev & 0x3) << 3));      
+    }   
+    return result.join('');
+  };
+
+  var baseBase32Decode = function(string) {};
+
   UTF.prototype = {
-    'constructor': UTF,
     'utf8Encode': utf8Encode,
     'utf8Decode': utf8Decode,
     'ucs2Encode': ucs2Encode,
@@ -267,7 +328,7 @@
   };
 
   Object.defineProperty(UTF.prototype, 'constructor', {
-    enumerable: false
+    'value': UTF
   });
 
   var utf = UTF();
