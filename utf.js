@@ -19,7 +19,9 @@
 
   var BASE64_RE = /^[A-Za-z0-9+/]+={0,2}$/,
       BASE32_RE = /^[0-9a-hjkmnp-rt-z]+$/,
-      BASE16_RE = /^[0-9A-F]+$/;      
+      BASE16_RE = /^[0-9A-F]+$/;  
+
+  var ASCII_RE = /^[\u0000-\u007F]+$/;        
 
   var UTF = function() {
     if (!(this instanceof UTF)) {
@@ -51,7 +53,7 @@
       if (typeof string !== 'string') {
         return '';
       }
-      if (/[^\u0000-\u00FF]+/.test(string)) {
+      if (!ASCII_RE.test(string)) {
         throw new Error('Non-ASCII character');
       }
       switch (flag) {
@@ -69,7 +71,7 @@
       }
       switch (flag) {
         case 'BASE_16':
-          if (BASE16_FLAG.test(string) && !(string.length % 2)) {
+          if (BASE16_RE.test(string) && !(string.length % 2)) {
             return baseBase16Decode(string);
           }
           throw new Error('Invalid base16 sequence');
@@ -378,9 +380,33 @@
     return result.join('');
   };
 
-  var baseBase16Encode = function(string) {};
+  var baseBase16Encode = function(string) {
+    var result = [], codePoint,
+        length = string.length;
+    for (var index = 0; index < length; index += 1) {
+      codePoint = codePointAt.call(string[index], 0);
+      result.push(
+        BASE16_SET.charAt(codePoint >> 4), 
+        BASE16_SET.charAt(codePoint & 0xF)
+      );
+    }    
+    return result.join('');
+  };
 
-  var baseBase16Decode = function(string) {};
+  var baseBase16Decode = function(string) {
+    var result = [],
+        prev, cur, byteNum,
+        length = string.length;
+    for (var index = 0; index < length; index += 1) {
+      byteNum = index % 2;
+      cur = BASE16_SET.indexOf(string.charAt(index));
+      if (byteNum === 1) {
+        result.push(fromCodePoint((prev << 4) | cur));
+      }
+      prev = cur;
+    }   
+    return result.join(''); 
+  };
 
   UTF.prototype = {
     'utf8Encode': utf8Encode,
