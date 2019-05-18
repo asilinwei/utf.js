@@ -10,19 +10,23 @@
   var at;
 
   var BASE64_SET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/',
-      BASE32_SET = '0123456789abcdefghjkmnpqrtuvwxyz';
+      BASE32_SET = '0123456789abcdefghjkmnpqrtuvwxyz',
+      BASE16_SET = '0123456789ABCDEF';
 
   var BASE64_FLAG = 'BASE_64',
-      BASE32_FLAG = 'BASE_32';  
+      BASE32_FLAG = 'BASE_32',
+      BASE16_FLAG = 'BASE_16';  
 
   var BASE64_RE = /^[A-Za-z0-9+/]+={0,2}$/,
-      BASE32_RE = /^[0-9a-hjkmnp-rt-z]+$/;      
+      BASE32_RE = /^[0-9a-hjkmnp-rt-z]+$/,
+      BASE16_RE = /^[0-9A-F]+$/;      
 
   var UTF = function() {
     if (!(this instanceof UTF)) {
       return new UTF();
     }
     this.version = '0.0.1';
+    this.base16 = { 'encode': base16Encode, 'decode': base16Decode };
     this.base32 = { 'encode': base32Encode, 'decode': base32Decode };
     this.base64 = { 'encode': base64Encode, 'decode': base64Decode };
   };
@@ -51,6 +55,7 @@
         throw new Error('Non-ASCII character');
       }
       switch (flag) {
+        case 'BASE_16': return baseBase16Encode(string);
         case 'BASE_32': return baseBase32Encode(string);
         case 'BASE_64': return baseBase64Encode(string);
       }
@@ -63,6 +68,11 @@
         return '';
       }
       switch (flag) {
+        case 'BASE_16':
+          if (BASE16_FLAG.test(string) && !(string.length % 2)) {
+            return baseBase16Decode(string);
+          }
+          throw new Error('Invalid base16 sequence');
         case 'BASE_32':
           if (BASE32_RE.test(string)) {
             return baseBase32Decode(string);
@@ -78,11 +88,12 @@
   };
 
   var base64Encode = baseNEncode(BASE64_FLAG),
-      base32Encode = baseNEncode(BASE32_FLAG);
+      base32Encode = baseNEncode(BASE32_FLAG),
+      base16Encode = baseNEncode(BASE16_FLAG);
 
   var base64Decode = baseNDecode(BASE64_FLAG),
-      base32Decode = baseNDecode(BASE32_FLAG);
-
+      base32Decode = baseNDecode(BASE32_FLAG),
+      base16Decode = baseNDecode(BASE16_FLAG);
 
   var utf8Encode = function(string) {
     if (typeof string !== 'string') {
@@ -366,6 +377,10 @@
     }    
     return result.join('');
   };
+
+  var baseBase16Encode = function(string) {};
+
+  var baseBase16Decode = function(string) {};
 
   UTF.prototype = {
     'utf8Encode': utf8Encode,
