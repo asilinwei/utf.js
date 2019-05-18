@@ -13,13 +13,16 @@
       BASE32_SET = '0123456789abcdefghjkmnpqrtuvwxyz';
 
   var BASE64_FLAG = 'BASE_64',
-      BASE32_FLAG = 'BASE_32';    
+      BASE32_FLAG = 'BASE_32';  
+
+  var BASE64_RE = /^[A-Za-z0-9+/]+={0,2}$/,
+      BASE32_RE = /^[0-9a-hjkmnp-rt-z]+$/;      
 
   var UTF = function() {
     if (!(this instanceof UTF)) {
       return new UTF();
     }
-    this.VERSION = '0.0.1';
+    this.version = '0.0.1';
     this.base32 = { 'encode': base32Encode, 'decode': base32Decode };
     this.base64 = { 'encode': base64Encode, 'decode': base64Decode };
   };
@@ -54,20 +57,32 @@
     };
   };
 
+  var baseNDecode = function(flag) {
+    return function(string) {
+      if (typeof string !== 'string') {
+        return '';
+      }
+      switch (flag) {
+        case 'BASE_32':
+          if (BASE32_RE.test(string)) {
+            return baseBase32Decode(string);
+          }
+          throw new Error('Invalid base32 sequence');
+        case 'BASE_64':
+          if (BASE64_RE.test(string) && !(string.length % 4)) {
+            return baseBase64Decode(string);
+          }  
+          throw new Error('Invalid base64 sequence');
+      }
+    };
+  };
+
   var base64Encode = baseNEncode(BASE64_FLAG),
       base32Encode = baseNEncode(BASE32_FLAG);
 
-  var base64Decode = function(string) {
-    if (typeof string !== 'string') {
-      return '';
-    }
-    if (/^[A-Za-z0-9+/]+={0,2}$/.test(string) && !(string.length % 4)) {
-      return baseBase64Decode(string);
-    }
-    throw new Error('Invalid base64 sequence');
-  }; 
+  var base64Decode = baseNDecode(BASE64_FLAG),
+      base32Decode = baseNDecode(BASE32_FLAG);
 
-  var base32Decode = function(string) {};
 
   var utf8Encode = function(string) {
     if (typeof string !== 'string') {
@@ -318,7 +333,39 @@
     return result.join('');
   };
 
-  var baseBase32Decode = function(string) {};
+  var baseBase32Decode = function(string) {
+    var result = [],
+        prev, cur, byteNum, tmp,
+        length = string.length;
+    for (var index = 0; index < length; index += 1) {
+      byteNum = index % 8;
+      cur = BASE32_SET.indexOf(string.charAt(index));
+      switch (byteNum) {
+        case 1:
+          result.push(fromCodePoint((prev << 3) | (cur >> 2)));
+          break;
+        case 2:
+          tmp = ((prev & 0x3) << 5) | cur;
+          break;
+        case 3:
+          result.push(fromCodePoint((tmp << 1) | cur >> 4));
+          break;
+        case 4:
+          result.push(fromCodePoint(((prev & 0xF) << 4) | (cur >> 1)));
+          break;
+        case 5:
+          tmp = ((prev & 0x1) << 5) | cur;
+          break;
+        case 6:
+          result.push(fromCodePoint((tmp << 2) | cur >> 3));
+          break;
+        case 7:
+          result.push(fromCodePoint(((prev & 0x7) << 5) | cur));            
+      }
+      prev = cur;
+    }    
+    return result.join('');
+  };
 
   UTF.prototype = {
     'utf8Encode': utf8Encode,
